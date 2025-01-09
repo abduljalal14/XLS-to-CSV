@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parse XLS to CSV</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+  <style>
+    textarea {
+      width: 100%;
+      height: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-4">
+    <h1>Parse XLS to CSV</h1>
+    <div class="mb-3">
+      <input type="file" id="file-input" class="form-control" />
+    </div>
+    <button id="add-data" class="btn btn-primary mb-3">Tambah Data</button>
+    <button id="download-csv" class="btn btn-success mb-3">Unduh CSV</button>
+    <button id="clear-data" class="btn btn-danger mb-3">Bersihkan Data</button>
+    <textarea id="csv-preview" class="form-control" ></textarea>
+  </div>
+
+  <script>
+    let csvData = []; // Array to store parsed CSV data
+
+    // Function to parse XLS to CSV format
+    function parseXLSToCSV(workbook) {
+      let data = [];
+      let sheet = workbook.Sheets[workbook.SheetNames[0]];
+      let rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      let numProducts = Math.floor(rows.length / 9);
+
+      for (let i = 0; i < numProducts; i++) {
+        let product = [];
+        let offset = i * 9;
+
+        let sku = rows[offset + 8][1]; // B9
+        let name = rows[offset + 1][0]; // A2
+        let price1 = rows[offset + 3][1]; // B4
+        let price2 = rows[offset + 4][1]; // B5
+        let pcs2 = rows[offset + 4][3]; // D5
+        let price3 = rows[offset + 6][1]; // B7
+        let pcs3 = rows[offset + 6][3]; // D7
+
+        product.push(sku, name, price1, price2, pcs2, price3, pcs3);
+        data.push(product);
+      }
+
+      return data;
+    }
+
+    // Function to display CSV data in the textarea
+    function displayCSV(data) {
+      let csv = "SKU,NAMA,Harga,Meta:price2,Meta:pcs2,Meta:price3,Meta:pcs3\n";
+      data.forEach(row => {
+        csv += row.join(",") + "\n";
+      });
+      document.getElementById("csv-preview").value = csv;
+    }
+
+    // Add data from file to CSV preview
+    document.getElementById("add-data").addEventListener("click", function () {
+      let fileInput = document.getElementById("file-input");
+      let file = fileInput.files[0];
+
+      if (!file) {
+        alert("Pilih file XLS terlebih dahulu.");
+        return;
+      }
+
+      let reader = new FileReader();
+      reader.onload = function (e) {
+        let data = e.target.result;
+        let workbook = XLSX.read(data, { type: 'binary' });
+        let parsedData = parseXLSToCSV(workbook);
+        csvData = csvData.concat(parsedData);
+        displayCSV(csvData);
+        localStorage.setItem('csvData', JSON.stringify(csvData)); // Store data in local storage
+      };
+      reader.readAsBinaryString(file);
+    });
+
+    // Download CSV file
+    document.getElementById("download-csv").addEventListener("click", function () {
+      let csv = "SKU,NAMA,Harga,Meta:price2,Meta:pcs2,Meta:price3,Meta:pcs3\n";
+      csvData.forEach(row => {
+        csv += row.join(",") + "\n";
+      });
+
+      let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      let link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "data.csv";
+      link.click();
+    });
+
+    // Clear CSV data
+    document.getElementById("clear-data").addEventListener("click", function () {
+      csvData = [];
+      displayCSV(csvData);
+      localStorage.removeItem('csvData'); // Clear local storage
+    });
+
+    // Load saved data from local storage if available
+    window.onload = function () {
+      let savedData = localStorage.getItem('csvData');
+      if (savedData) {
+        csvData = JSON.parse(savedData);
+        displayCSV(csvData);
+      }
+    };
+  </script>
+</body>
+</html>
